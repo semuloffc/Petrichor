@@ -288,3 +288,8 @@ void PluginProcessor::deleteUserPreset (const juce::String& name)
 juce::StringArray PluginProcessor::getUserPresetNames() { return presets.getUserNames(); }
 juce::StringArray PluginProcessor::getFactoryPresetNames() { return presets.getFactoryNames(); }
 }
+
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+{
+    return new petrichor::PluginProcessor();
+}
