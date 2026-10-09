@@ -1,0 +1,7 @@
+build/
+build-*/
+.cache/
+*.user
+*.vcxproj
+*.sln
+.DS_Store
