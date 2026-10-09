@@ -47,6 +47,7 @@ public:
     }
 
     std::array<std::atomic<float>, 8> levels;
+    std::atomic<int> dewStep { 0 };
 
 private:
     juce::AbstractFifo fifo { kEvents };

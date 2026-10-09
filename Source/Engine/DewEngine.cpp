@@ -93,6 +93,9 @@ void DewEngine::process (float* outL, float* outR, int n, const EngineContext& c
     const double stepSec = (double) beatsPerStep[rateIdx] * ctx.clock->secondsPerBeat();
     const int stepSamples = (int) std::max (1.0, stepSec * sampleRate);
 
+    if (ctx.viz != nullptr)
+        ctx.viz->dewStep.store (currentStep < 0 ? 0 : currentStep);
+
     std::memset (outL, 0, (size_t) n * sizeof (float));
     std::memset (outR, 0, (size_t) n * sizeof (float));
 
