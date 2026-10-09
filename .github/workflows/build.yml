@@ -15,92 +15,98 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            cmake_args: '-G "Visual Studio 17 2022" -A x64'
+            name: Windows
+            vst3_path: build/Petrichor_artefacts/Release/VST3/Petrichor.vst3
+            pluginval_bin: ./pluginval/pluginval.exe
+            pluginval_asset: pluginval_Windows.zip
           - os: macos-latest
-            cmake_args: ''
+            name: macOS
+            vst3_path: build/Petrichor_artefacts/Release/VST3/Petrichor.vst3
+            pluginval_bin: ./pluginval/pluginval.app/Contents/MacOS/pluginval
+            pluginval_asset: pluginval_macOS.zip
           - os: ubuntu-latest
-            cmake_args: ''
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
+            name: Linux
+            vst3_path: build/Petrichor_artefacts/VST3/Petrichor.vst3
+            pluginval_bin: ./pluginval/pluginval
+            pluginval_asset: pluginval_Linux.zip
 
-      - name: Configure
-        run: cmake -B build ${{ matrix.cmake_args }} -DCMAKE_BUILD_TYPE=Release
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb unzip zip
+
+      - name: Install macOS deps
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: cmake -B build
+
+      - name: Configure (macOS)
+        if: runner.os == 'macOS'
+        run: cmake -B build -G "Ninja Multi-Config" -DCMAKE_BUILD_TYPE=Release
+
+      - name: Configure (Linux)
+        if: runner.os == 'Linux'
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release --parallel
 
-      - name: Locate VST3
-        id: locate
-        shell: bash
-        run: |
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            echo "vst3=build/Petrichor_artefacts/Release/VST3/Petrichor.vst3" >> "$GITHUB_OUTPUT"
-          else
-            echo "vst3=build/Petrichor_artefacts/VST3/Petrichor.vst3" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Install pluginval (Windows)
-        if: matrix.os == 'windows-latest'
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Windows.zip" -OutFile pluginval.zip
+          Invoke-WebRequest -Uri "https://github.com/Tracktion/pluginval/releases/latest/download/${{ matrix.pluginval_asset }}" -OutFile pluginval.zip
           Expand-Archive pluginval.zip -DestinationPath pluginval
 
-      - name: Install pluginval (macOS)
-        if: matrix.os == 'macos-latest'
+      - name: Install pluginval (macOS/Linux)
+        if: runner.os != 'Windows'
         run: |
-          curl -L -o pluginval.zip "https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_macOS.zip"
+          curl -L -o pluginval.zip "https://github.com/Tracktion/pluginval/releases/latest/download/${{ matrix.pluginval_asset }}"
           unzip pluginval.zip -d pluginval
-          chmod +x pluginval/pluginval.app/Contents/MacOS/pluginval
+          chmod +x "${{ matrix.pluginval_bin }}"
 
-      - name: Install pluginval (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update && sudo apt-get install -y xvfb unzip zip
-          curl -L -o pluginval.zip "https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Linux.zip"
-          unzip pluginval.zip -d pluginval
-          chmod +x pluginval/pluginval
-
-      - name: Run pluginval (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: ./pluginval/pluginval.exe --strictness 5 --skip-gui-tests --validate "${{ steps.locate.outputs.vst3 }}"
-
-      - name: Run pluginval (macOS)
-        if: matrix.os == 'macos-latest'
-        run: ./pluginval/pluginval.app/Contents/MacOS/pluginval --strictness 5 --skip-gui-tests --validate "${{ steps.locate.outputs.vst3 }}"
+      - name: Run pluginval (Windows/macOS)
+        if: runner.os != 'Linux'
+        run: ${{ matrix.pluginval_bin }} --strictness 5 --skip-gui-tests "${{ matrix.vst3_path }}"
 
       - name: Run pluginval (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: xvfb-run -a ./pluginval/pluginval --strictness 5 --skip-gui-tests --validate "${{ steps.locate.outputs.vst3 }}"
+        if: runner.os == 'Linux'
+        run: xvfb-run -a ${{ matrix.pluginval_bin }} --strictness 5 --skip-gui-tests "${{ matrix.vst3_path }}"
 
       - name: Package
         shell: bash
         run: |
           VER="$(cat VERSION)"
-          case "${{ matrix.os }}" in
-            windows-latest) TAG="win64";;
-            macos-latest)   TAG="macos";;
-            ubuntu-latest)  TAG="linux";;
-          esac
-          DST="Petrichor-v${VER}-${TAG}"
+          DST="Petrichor-v${VER}-${{ matrix.name }}"
           mkdir -p "$DST"
-          cp -r "${{ steps.locate.outputs.vst3 }}" "$DST/"
+          cp -r "${{ matrix.vst3_path }}" "$DST/"
           cp README.txt "$DST/README.txt"
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          if [ "${{ runner.os }}" = "Windows" ]; then
             powershell -Command "Compress-Archive -Path '$DST' -DestinationPath '$DST.zip' -Force"
           else
             zip -r "$DST.zip" "$DST"
           fi
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: Petrichor-${{ matrix.os }}
+          name: Petrichor-${{ matrix.name }}
           path: "*.zip"
 
-      - name: Publish GitHub Release
+      - name: Create Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: "*.zip"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
