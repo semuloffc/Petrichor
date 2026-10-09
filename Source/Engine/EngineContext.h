@@ -27,6 +27,7 @@ struct EngineContext
     const ScaleQuantizer* scale = nullptr;
     const HostClock* clock = nullptr;
     VisualizerBus* viz = nullptr;
+    int scaleIndex = 0;
 
     float param (const juce::String& id) const { return params->getRawParameterValue (id)->load(); }
     bool paramBool (const juce::String& id) const { return param (id) >= 0.5f; }
