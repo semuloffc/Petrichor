@@ -60,6 +60,7 @@ juce_add_plugin(Petrichor
 )
 
 target_include_directories(Petrichor PRIVATE Source)
+target_compile_definitions(Petrichor PRIVATE JUCE_VST3_CAN_REPLACE_VST2=0)
 
 if(MSVC)
   target_compile_options(Petrichor PRIVATE /W3 /permissive- /utf-8)
