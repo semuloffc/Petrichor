@@ -49,3 +49,9 @@ CMake build detects the files automatically.
 - `Weather Storm` and `Weather Humid` are applied proportionally to the macro
   value (e.g. Storm 100 = full "+50% triplet steps, humanize ×3, BREEZE +6 dB,
   burst_prob +40 points").
+- The lucid-glass background draws soft bokeh blobs as radial gradients and the
+  frosted card fill is a translucent `bg-top` layer instead of a full
+  `ImageConvolutionKernel` pass; this keeps the 60 fps UI cheap with the same
+  visual result.
+- `Weather Storm`'s "extra splashes" are added as an in-between DEW voice at
+  half a step, which keeps the 8-voice budget while adding the same density.
