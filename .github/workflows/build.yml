@@ -4,8 +4,9 @@ on:
   push:
   pull_request:
   workflow_dispatch:
-  tags:
-    - "v*"
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -14,40 +15,36 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            cmake: "-G \"Visual Studio 17 2022\" -A x64"
-            shell: pwsh
+            cmake_args: '-G "Visual Studio 17 2022" -A x64'
           - os: macos-latest
-            cmake: "-DCMAKE_OSX_ARCHITECTURES=\"arm64;x86_64\""
-            shell: bash
+            cmake_args: ''
           - os: ubuntu-latest
-            cmake: ""
-            shell: bash
+            cmake_args: ''
     runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: ${{ matrix.shell }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Configure
-        run: cmake -B build ${{ matrix.cmake }} -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build ${{ matrix.cmake_args }} -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release --parallel
 
       - name: Locate VST3
         id: locate
+        shell: bash
         run: |
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            echo "vst3=build/Petrichor_artefacts/Release/VST3/Petrichor.vst3" >> $GITHUB_OUTPUT
+            echo "vst3=build/Petrichor_artefacts/Release/VST3/Petrichor.vst3" >> "$GITHUB_OUTPUT"
           else
-            echo "vst3=build/Petrichor_artefacts/VST3/Petrichor.vst3" >> $GITHUB_OUTPUT
+            echo "vst3=build/Petrichor_artefacts/VST3/Petrichor.vst3" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Install pluginval (Windows)
         if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_win64.zip" -OutFile pluginval.zip
+          Invoke-WebRequest -Uri "https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Windows.zip" -OutFile pluginval.zip
           Expand-Archive pluginval.zip -DestinationPath pluginval
 
       - name: Install pluginval (macOS)
@@ -60,13 +57,14 @@ jobs:
       - name: Install pluginval (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt-get update && sudo apt-get install -y xvfb
+          sudo apt-get update && sudo apt-get install -y xvfb unzip zip
           curl -L -o pluginval.zip "https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Linux.zip"
           unzip pluginval.zip -d pluginval
           chmod +x pluginval/pluginval
 
       - name: Run pluginval (Windows)
         if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: ./pluginval/pluginval.exe --strictness 5 --skip-gui-tests --validate "${{ steps.locate.outputs.vst3 }}"
 
       - name: Run pluginval (macOS)
@@ -81,8 +79,7 @@ jobs:
         shell: bash
         run: |
           VER="$(cat VERSION)"
-          OS="${{ matrix.os }}"
-          case "$OS" in
+          case "${{ matrix.os }}" in
             windows-latest) TAG="win64";;
             macos-latest)   TAG="macos";;
             ubuntu-latest)  TAG="linux";;
@@ -91,13 +88,11 @@ jobs:
           mkdir -p "$DST"
           cp -r "${{ steps.locate.outputs.vst3 }}" "$DST/"
           cp README.txt "$DST/README.txt"
-          if [ "$OS" = "windows-latest" ]; then
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
             powershell -Command "Compress-Archive -Path '$DST' -DestinationPath '$DST.zip' -Force"
           else
             zip -r "$DST.zip" "$DST"
           fi
-          echo "archive=$DST.zip" >> $GITHUB_OUTPUT
-          echo "dst=$DST" >> $GITHUB_OUTPUT
 
       - uses: actions/upload-artifact@v4
         with:

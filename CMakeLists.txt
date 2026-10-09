@@ -10,7 +10,7 @@ if(APPLE AND NOT DEFINED CMAKE_OSX_ARCHITECTURES)
 endif()
 
 include(FetchContent)
-set(JUCE_VERSION "8.0.8" CACHE STRING "JUCE git tag to pin")
+set(JUCE_VERSION "8.0.15" CACHE STRING "JUCE git tag to pin")
 FetchContent_Declare(juce
   GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
   GIT_TAG        ${JUCE_VERSION}
